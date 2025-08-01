@@ -229,11 +229,13 @@ function Cuboid:IsCuboidEnclosed(cuboid: Cuboid, epsilon: number?): boolean
 	return true
 end
 
+local AxisEnums = Enum.Axis:GetEnumItems()
+
 function Cuboid:ToAxisAlignedBoundingBox(): OrthogonalCuboid.OrthogonalCuboid
 	local vertices = self:GetVertices()
 	local minComponents: {number}, maxComponents: {number} = table.create(3), table.create(3)
 
-	for index, axis in Enum.Axis:GetEnumItems() do
+	for index, axis in AxisEnums do
 		minComponents[index], maxComponents[index] = GetScalarDotProductExtents(vertices, Vector3.FromAxis(axis))
 	end
 
@@ -244,7 +246,7 @@ end
 
 function Cuboid:ResolveIntersection(static: Cuboid): Cuboid
 	local dynamicVertices, staticVertices = self:GetVertices(), static:GetVertices()
-	local offset, smallestOffset = Vector3.zero, math.huge
+	local translation, minDelta = Vector3.zero, math.huge
 
 	for _, normal in Table.ConcatenateArrays(self:GetNormals(), static:GetNormals()) do
 		local dynamicMin, dynamicMax = GetScalarDotProductExtents(dynamicVertices, normal)
@@ -257,17 +259,17 @@ function Cuboid:ResolveIntersection(static: Cuboid): Cuboid
 		local delta = staticMax - dynamicMin
 		local scaledDelta = delta / (dynamicMax - dynamicMin)
 
-		if scaledDelta < smallestOffset then
-			offset, smallestOffset = normal * delta, scaledDelta
+		if scaledDelta < minDelta then
+			translation, minDelta = normal * delta, scaledDelta
 		end
 	end
 
-	return self + Cuboid.FromCFrame(CFrame.new(offset))
+	return self + Cuboid.FromCFrame(CFrame.new(translation))
 end
 
-local AxisNames = table.create(3)
+local AxisNames: {string} = table.create(3)
 
-for _, axis in Enum.Axis:GetEnumItems() do
+for _, axis in AxisEnums do
 	table.insert(AxisNames, axis.Name)
 end
 
@@ -278,13 +280,13 @@ function Cuboid:SnapToIncrement(increment: number): Cuboid
 	local components: {number} = table.create(3)
 
 	for _, name in AxisNames do
-		local axisPosition, axisSize = (position :: any)[name], (size :: any)[name]
+		local coordinate = (position :: any)[name]
 		local component: number
 
-		if math.round(axisSize * increment) % 2 == 0 then
-			component = math.round(axisPosition / increment) * increment
+		if math.round((size :: any)[name] * increment) % 2 == 0 then
+			component = math.round(coordinate / increment) * increment
 		else
-			component = axisPosition // increment * increment + increment / 2
+			component = coordinate // increment * increment + increment / 2
 		end
 
 		table.insert(components, component)
